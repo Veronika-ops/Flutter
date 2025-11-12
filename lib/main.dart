@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'main_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'second_screen.dart';
-import 'third_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://aogwntbdzsgncqbklofl.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvZ3dudGJkenNnbmNxYmtsb2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3NTA5OTcsImV4cCI6MjA3ODMyNjk5N30.PY5nqJewgX52vFmjofUJmDj8n-QPjeWdVLK1ipI_e4Q',
+  );
   runApp(const MyApp());
 }
 
@@ -13,216 +17,277 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Lab Work',
+      title: 'Регистрация',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          filled: true,
+          fillColor: Colors.grey[50],
+        ),
       ),
-      // Домашняя страница - ваш существующий интерфейс
-      home: const MyHomePage(title: 'Flutter Laboratory Work'),
-      
-      // Named routes для навигации
-      routes: {
-        '/': (context) => const MainScreen(),
-        '/second': (context) => const SecondScreen(),
-        '/third': (context) => const ThirdScreen(),
-      },
-      
-      // Начальный маршрут (опционально)
-      initialRoute: '/',
+      home: const RegistrationPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+class RegistrationPage extends StatefulWidget {
+  const RegistrationPage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<RegistrationPage> createState() => _RegistrationPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _RegistrationPageState extends State<RegistrationPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _loginController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  
+  bool _isRegisterMode = false;
+  SupabaseClient get _supabase => Supabase.instance.client;
 
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
+  @override
+  void dispose() {
+    _loginController.dispose();
+    _passwordController.dispose();
+    _usernameController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 
-  void _onFloatingActionButtonPressed() {
-    print('Floating Action Button pressed! Counter: $_counter');
+  Future<void> _handleRegistration() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final login = _loginController.text.trim();
+    final password = _passwordController.text.trim();
+
+    try {
+      if (_isRegisterMode) {
+        // Простая регистрация: проверяем, что логин ещё не занят и создаём запись
+        final existing = await _supabase
+            .from('Users')
+            .select('id')
+            .eq('login', login)
+            .limit(1)
+            .maybeSingle();
+        debugPrint('Supabase check existing user: $existing');
+        if (existing != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Логин уже занят'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+        await _supabase.from('Users').insert({
+          'login': login,
+          'password': password,
+        });
+        debugPrint('Supabase created user: $login');
+
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const SecondScreen(),
+          ),
+        );
+      } else {
+        // Вход: ищем пользователя по логину и паролю
+        final user = await _supabase
+            .from('Users')
+            .select('id, login')
+            .eq('login', login)
+            .eq('password', password)
+            .limit(1)
+            .maybeSingle();
+        debugPrint('Supabase login result: $user');
+
+        if (user == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Неверный логин или пароль'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const SecondScreen(),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-        actions: [
-          // Кнопка навигации в AppBar
-          IconButton(
-            icon: const Icon(Icons.navigation),
-            onPressed: () {
-              Navigator.pushNamed(context, '/');
-            },
-            tooltip: 'Перейти к навигации',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Первый Container (верхний)
-          Container(
-            width: double.infinity,
-            height: 100,
-            color: Colors.red,
-            child: const Center(
-              child: Text(
-                'Верхний Container',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          
-          // Row с тремя Text виджетами
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  'Текст 1',
-                  style: TextStyle(fontSize: 16),
-                ),
-                Text(
-                  'Текст 2',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Текст 3',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Кнопки навигации
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ElevatedButton(
-                  onPressed: () {
-                    // Базовая навигация
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SecondScreen()),
-                    );
-                  },
-                  child: const Text('2-й экран (базовая)'),
+                const SizedBox(height: 20),
+                // Заголовок
+                Text(
+                  _isRegisterMode ? 'Регистрация' : 'Вход',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                  textAlign: TextAlign.center,
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    // Named routes навигация
-                    Navigator.pushNamed(context, '/second');
-                  },
-                  child: const Text('2-й экран (named)'),
+                const SizedBox(height: 8),
+                Text(
+                  _isRegisterMode
+                      ? 'Заполните форму для регистрации'
+                      : 'Введите данные для входа',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                  textAlign: TextAlign.center,
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/third');
+                const SizedBox(height: 40),
+
+                // Имя
+                TextFormField(
+                  controller: _loginController,
+                  decoration: const InputDecoration(
+                    labelText: 'Логин',
+                    hintText: 'Введите логин',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Пожалуйста, введите логин';
+                    }
+                    return null;
                   },
-                  child: const Text('3-й экран'),
                 ),
+                const SizedBox(height: 16),
+
+                // Пароль
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Пароль',
+                    hintText: 'Введите пароль',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Пожалуйста, введите пароль';
+                    }
+                    if (value.length < 6) {
+                      return 'Пароль должен содержать минимум 6 символов';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                if (_isRegisterMode) ...[
+                  // Имя пользователя
+                  TextFormField(
+                    controller: _usernameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Имя пользователя',
+                      hintText: 'Введите имя пользователя',
+                    ),
+                    validator: (value) {
+                      if (!_isRegisterMode) {
+                        return null;
+                      }
+                      if (value == null || value.isEmpty) {
+                        return 'Пожалуйста, введите имя пользователя';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Подтверждение пароля
+                TextFormField(
+                  controller: _confirmPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Повторите пароль',
+                      hintText: 'Введите пароль ещё раз',
+                  ),
+                  validator: (value) {
+                      if (!_isRegisterMode) {
+                        return null;
+                      }
+                    if (value == null || value.isEmpty) {
+                        return 'Пожалуйста, повторите пароль';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Пароли не совпадают';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+                ] else
+                  const SizedBox(height: 24),
+
+                // Кнопка регистрации
+                FilledButton(
+                  onPressed: _handleRegistration,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    _isRegisterMode ? 'Зарегистрироваться' : 'Войти',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: TextButton(
+                      onPressed: () {
+                      setState(() {
+                        _isRegisterMode = !_isRegisterMode;
+                      });
+                    },
+                    child: Text(
+                      _isRegisterMode ? 'Уже есть аккаунт? Войти' : 'Создать аккаунт',
+                    ),
+                  ),
+                )
               ],
             ),
           ),
-          
-          // Expanded с Row и CircleAvatar
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/second');
-                    },
-                    child: CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Colors.green,
-                      child: Text(
-                        'A1',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/third');
-                    },
-                    child: CircleAvatar(
-                      radius: 60,
-                      backgroundImage: NetworkImage(
-                        'https://images.unsplash.com/photo-1541963463532-d68292c34b19?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Второй Container (нижний)
-          Container(
-            width: double.infinity,
-            height: 80,
-            color: Colors.blue,
-            child: Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.blue,
-                ),
-                child: const Text(
-                  'Перейти к системе навигации',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _onFloatingActionButtonPressed,
-        tooltip: 'Increment!!!!!!!!!!!!!!!!',
-        child: const Icon(Icons.add),
+        ),
       ),
     );
   }
