@@ -11,8 +11,9 @@ Future<void> main() async {
 
   // Настраиваем соединение с нашим проектом Supabase.
   await Supabase.initialize(
-    url: 'https://aogwntbdzsgncqbklofl.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvZ3dudGJkenNnbmNxYmtsb2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3NTA5OTcsImV4cCI6MjA3ODMyNjk5N30.PY5nqJewgX52vFmjofUJmDj8n-QPjeWdVLK1ipI_e4Q',
+    url: 'https://raewkudmpcmmletubjxw.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhZXdrdWRtcGNtbWxldHVianh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0NzE5MjMsImV4cCI6MjA3NjA0NzkyM30.7UWu9HPBtLX-VPqNP6prbNea7bOGY1ag9sXHP_dYF-k',
   );
 
   // Запускаем приложение, передавая корневой виджет.
@@ -121,7 +122,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
         // Если логин свободен — создаём новую строку в таблице Users.
         await _supabase.from('Users').insert({
           'login': login,
-          'password': password,
+          'username': _usernameController.text.trim(),
+          'pass': password,
         });
         debugPrint('Supabase created user: $login');
 
@@ -144,7 +146,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             .from('Users')
             .select('id, login')
             .eq('login', login)
-            .eq('password', password)
+            .eq('pass', password)
             .limit(1)
             .maybeSingle();
         debugPrint('Supabase login result: $user');
@@ -228,6 +230,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     if (value == null || value.isEmpty) {
                       return 'Пожалуйста, введите логин';
                     }
+                    if (value.length < 4) {
+                      return 'Логин должен содержать минимум 4 символа';
+                    }
                     return null;
                   },
                 ),
@@ -237,7 +242,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Пароль',
                     hintText: 'Введите пароль',
                   ),
@@ -245,8 +250,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     if (value == null || value.isEmpty) {
                       return 'Пожалуйста, введите пароль';
                     }
-                    if (value.length < 6) {
-                      return 'Пароль должен содержать минимум 6 символов';
+                    if (value.length < 4) {
+                      return 'Пароль должен содержать минимум 4 символа';
                     }
                     return null;
                   },
